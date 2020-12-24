@@ -1,0 +1,3 @@
+[submodule "MathLib"]
+	path = MathLib
+	url = git@github.com:fidian/MathLib.git

@@ -142,6 +142,40 @@ void rotate_3d(vec3* points, UInt16 count, vec3 center, rot3 angle) {
   }
 }
 
+void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
+  float cosa, sina, cosb, sinb, cosc, sinc, axx, axy, axz, ayx, ayy, ayz, azx, azy, azz, px, py, pz;
+  UInt16 i;
+
+  cosa = cos(angle.i);
+  sina = sin(angle.i);
+  cosb = cos(angle.i);
+  sinb = sin(angle.i);
+  cosc = cos(angle.i);
+  sinc = sin(angle.i);
+
+  axx = cosa * cosb;
+  axy = cosa * sinb * sinc - sina * cosc;
+  axz = cosa * sinb * cosc + sina * sinc;
+
+  ayx = sina * cosb;
+  ayy = sina * sinb * sinc + cosa * cosc;
+  ayz = sina * sinb * cosc - cosa * sinc;
+
+  azx = -sinb;
+  azy = cosb * sinc;
+  azz = cosb * cosc;
+
+  for (i = 0; i < count; i++) {
+    px = points[i].x - center.x;
+    py = points[i].y - center.y;
+    pz = points[i].z - center.z;
+
+    points[i].x = axx * px + axy * py + axz * pz + center.x;
+    points[i].y = ayx * px + ayy * py + ayz * pz + center.y;
+    points[i].z = azx * px + azy * py + azz * pz + center.z;
+  }
+}
+
 float fsin(int angle) {
   return sin_table[angle % 360];
 }
@@ -224,9 +258,9 @@ void StartApplication() {
   len = StrPrintF(buf, "%d", (int) v2dist(make_vec2(0, 0), make_vec2(3, 4)));
 
   do {
-    rotate_3d(cube.verts, cube.verts_count, center, angle);
+    rotate_3d_fast(cube.verts, cube.verts_count, center, angle);
     WinEraseWindow();
-//    WinDrawChars(buf, len, 0, 0);
+    //    WinDrawChars(buf, len, 0, 0);
     draw_figure(&cube);
     EvtGetEvent(&event, delay);
     if (!SysHandleEvent(&event)) {

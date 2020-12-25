@@ -142,16 +142,29 @@ void rotate_3d(vec3* points, UInt16 count, vec3 center, rot3 angle) {
   }
 }
 
+float fsin(int angle) {
+  return sin_table[angle % 360];
+}
+
+// cos(x) = sin(90-x)
+float fcos(int angle) {
+  int index = (90 - angle) % 360;
+  if (index < 0) {
+    index = index + 360;
+  }
+  return sin_table[index];
+}
+
 void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
   float cosa, sina, cosb, sinb, cosc, sinc, axx, axy, axz, ayx, ayy, ayz, azx, azy, azz, px, py, pz;
   UInt16 i;
 
-  cosa = cos(angle.i);
-  sina = sin(angle.i);
-  cosb = cos(angle.i);
-  sinb = sin(angle.i);
-  cosc = cos(angle.i);
-  sinc = sin(angle.i);
+  cosa = fcos((int) angle.i);
+  sina = fsin((int) angle.i);
+  cosb = fcos((int) angle.i);
+  sinb = fsin((int) angle.i);
+  cosc = fcos((int) angle.i);
+  sinc = fsin((int) angle.i);
 
   axx = cosa * cosb;
   axy = cosa * sinb * sinc - sina * cosc;
@@ -174,19 +187,6 @@ void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
     points[i].y = ayx * px + ayy * py + ayz * pz + center.y;
     points[i].z = azx * px + azy * py + azz * pz + center.z;
   }
-}
-
-float fsin(int angle) {
-  return sin_table[angle % 360];
-}
-
-// cos(x) = sin(90-x)
-float fcos(int angle) {
-  int index = (90 - angle) % 360;
-  if (index < 0) {
-    index = index + 360;
-  }
-  return sin_table[index];
 }
 
 void app_handle_event(EventPtr event) {}
@@ -212,7 +212,7 @@ void StartApplication() {
   char buf[255];
   Int16 len;
 
-  rot3 angle = {0.1, 0.1, 0.1};
+  rot3 angle = {6, 6, 6};
   vec3 center = {0, 0, 15};
 
   // Init math lib

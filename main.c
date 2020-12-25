@@ -13,21 +13,35 @@
 #define SCREEN_W 160
 #define SCREEN_H 160
 
+// 1 bit - sign; 11 bits - integer part; 4 bits - fraction part
+#define FRAC_BITS 12
+#define SIGN_MASK 0xFFF00000
+#define FRAC_MASK 0x00000FFF
+#define MANT_MASK 0xFFFFF000
+
+#define FIX_MUL(X, Y) ((Fixed)(((Int32)((X) * (Y))) >> FRAC_BITS))
+#define FIX_DIV(X, Y) ((Fixed)(((Int32)(X) << FRAC_BITS) / Y))
+#define TO_INT(X) ((X) >> FRAC_BITS)
+#define FLOAT_TO_FIX(X) ((Fixed)((X) * (1 << FRAC_BITS)))
+#define INT_TO_FIX(X) ((Fixed)((X) << FRAC_BITS))
+
+typedef Int32 Fixed;
+
 typedef struct {
-  float x;
-  float y;
+  Fixed x;
+  Fixed y;
 } vec2;
 
 typedef struct {
-  float x;
-  float y;
-  float z;
+  Fixed x;
+  Fixed y;
+  Fixed z;
 } vec3;
 
 typedef struct {
-  float i;
-  float j;
-  float k;
+  Int16 i;
+  Int16 j;
+  Int16 k;
 } rot3;
 
 typedef struct {
@@ -47,8 +61,21 @@ typedef struct {
   Edge* edges;
 } Figure;
 
+float to_float(Fixed fp) {
+  float res;
+  Int16 fix_pow = fp & FRAC_MASK;
+  Int16 mant = (fp & MANT_MASK) >> FRAC_BITS;
+  if (fp & 0x8000) {
+    // keep sign if negative
+    mant |= SIGN_MASK;
+  }
+
+  res = (float) (mant + fix_pow) * (1.0f / (1 << FRAC_BITS));
+  return res;
+}
+
 vec2 make_vec2(float x, float y) {
-  vec2 res = {.x = x, .y = y};
+  vec2 res = {.x = FLOAT_TO_FIX(x), .y = FLOAT_TO_FIX(y)};
   return res;
 }
 
@@ -58,30 +85,32 @@ Edge make_edge(UInt16 start, UInt16 end) {
 }
 
 vec3 make_vec3(float x, float y, float z) {
-  vec3 res = {.x = x, .y = y, .z = z};
+  vec3 res = {.x = FLOAT_TO_FIX(x), .y = FLOAT_TO_FIX(y), .z = FLOAT_TO_FIX(z)};
   return res;
 }
 
 vec2 point_3d(vec3 point) {
-  float x2d, y2d, x_norm, y_norm;
+  Fixed x2d, y2d, x_norm, y_norm;
+  vec2 res;
   if (point.z < 1) {
     return make_vec2(-1, -1);
   }
 
-  x2d = point.x / point.z;
-  y2d = point.y / point.z;
-  x_norm = (x2d + W3D / 2) / W3D;
-  y_norm = (y2d + H3D / 2) / H3D;
+  x2d = FIX_DIV(point.x, point.z);
+  y2d = FIX_DIV(point.y, point.z);
+  x_norm = (x2d + INT_TO_FIX(W3D) / 2) / W3D;
+  y_norm = (y2d + INT_TO_FIX(H3D) / 2) / H3D;
   x2d = x_norm * SCREEN_W;
-  y2d = (1 - y_norm) * SCREEN_H;
-  return make_vec2(x2d, y2d);
+  y2d = (INT_TO_FIX(1) - y_norm) * SCREEN_H;
+  res.x = x2d;
+  res.y = y2d;
+  return res;
 }
 
 void draw_line_3d(vec3 start, vec3 end) {
   vec2 start_2d, end_2d;
-  if (start.z <= 0.001 || end.z <= 0.001) {
+  if (TO_INT(start.z) <= 0 || TO_INT(end.z) <= 0) {
     // TODO: draw part of the line in view
-    WinDrawLine(0, 0, 160, 160);
     return;
   }
 
@@ -90,18 +119,11 @@ void draw_line_3d(vec3 start, vec3 end) {
   // TODO: check if line fits screen?
 
   if ((start_2d.x == -1 && start_2d.y == -1) || (end_2d.x == -1 || end_2d.y == -1)) {
-    WinDrawLine(0, 160, 160, 0);
     return;
   }
 
-  WinDrawLine((Coord) start_2d.x, (Coord) start_2d.y, (Coord) end_2d.x, (Coord) end_2d.y);
-}
-
-void draw_lines_3d(line3d* lines, UInt16 size) {
-  UInt16 i = 0;
-  for (i; i < size; i++) {
-    draw_line_3d(lines[i].start, lines[i].end);
-  }
+  WinDrawLine((Coord) TO_INT(start_2d.x), (Coord) TO_INT(start_2d.y), (Coord) TO_INT(end_2d.x),
+              (Coord) TO_INT(end_2d.y));
 }
 
 void draw_figure(Figure* figure) {
@@ -112,42 +134,13 @@ void draw_figure(Figure* figure) {
   }
 }
 
-double v2dist(vec2 v1, vec2 v2) {
-  return sqrt((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y));
-}
-
-vec2 rot_2d(float x, float y, float cx, float cy, float angle) {
-  vec2 res;
-  float da, dist;
-  dist = (float) v2dist(make_vec2(x, y), make_vec2(cx, cy));
-  da = (float) atan2(y - cy, x - cx);
-  res.x = dist * cos(angle + da) + cx;
-  res.y = dist * sin(angle + da) + cy;
-  return res;
-}
-
-void rotate_3d(vec3* points, UInt16 count, vec3 center, rot3 angle) {
-  UInt16 i;
-  vec2 rx, ry, rz;
-  for (i = 0; i < count; i++) {
-    rx = rot_2d(points[i].x, points[i].y, center.x, center.y, angle.i);
-    points[i].x = rx.x;
-    points[i].y = rx.y;
-    ry = rot_2d(points[i].x, points[i].z, center.x, center.z, angle.j);
-    points[i].x = ry.x;
-    points[i].z = ry.y;
-    rz = rot_2d(points[i].y, points[i].z, center.y, center.z, angle.k);
-    points[i].y = rz.x;
-    points[i].z = rz.y;
-  }
-}
-
-float fsin(int angle) {
+float fsin(Int16 angle) {
+  // TODO: negative angle
   return sin_table[angle % 360];
 }
 
 // cos(x) = sin(90-x)
-float fcos(int angle) {
+float fcos(Int16 angle) {
   int index = (90 - angle) % 360;
   if (index < 0) {
     index = index + 360;
@@ -156,36 +149,36 @@ float fcos(int angle) {
 }
 
 void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
-  float cosa, sina, cosb, sinb, cosc, sinc, axx, axy, axz, ayx, ayy, ayz, azx, azy, azz, px, py, pz;
+  Fixed cosa, sina, cosb, sinb, cosc, sinc;
+  Fixed axx, axy, axz, ayx, ayy, ayz, azx, azy, azz;
+  Fixed px, py, pz;
   UInt16 i;
 
-  cosa = fcos((int) angle.i);
-  sina = fsin((int) angle.i);
-  cosb = fcos((int) angle.i);
-  sinb = fsin((int) angle.i);
-  cosc = fcos((int) angle.i);
-  sinc = fsin((int) angle.i);
+  cosa = FLOAT_TO_FIX(fcos(angle.i));
+  sina = FLOAT_TO_FIX(fsin(angle.i));
+  cosb = FLOAT_TO_FIX(fcos(angle.j));
+  sinb = FLOAT_TO_FIX(fsin(angle.j));
+  cosc = FLOAT_TO_FIX(fcos(angle.k));
+  sinc = FLOAT_TO_FIX(fsin(angle.k));
 
-  axx = cosa * cosb;
-  axy = cosa * sinb * sinc - sina * cosc;
-  axz = cosa * sinb * cosc + sina * sinc;
-
-  ayx = sina * cosb;
-  ayy = sina * sinb * sinc + cosa * cosc;
-  ayz = sina * sinb * cosc - cosa * sinc;
-
+  axx = FIX_MUL(cosa, cosb);
+  axy = FIX_MUL(FIX_MUL(cosa, sinb), sinc) - FIX_MUL(sina, cosc);
+  axz = FIX_MUL(FIX_MUL(cosa, sinb), cosc) + FIX_MUL(sina, sinc);
+  ayx = FIX_MUL(sina, cosb);
+  ayy = FIX_MUL(FIX_MUL(sina, sinb), sinc) + FIX_MUL(cosa, cosc);
+  ayz = FIX_MUL(FIX_MUL(sina, sinb), cosc) - FIX_MUL(cosa, sinc);
   azx = -sinb;
-  azy = cosb * sinc;
-  azz = cosb * cosc;
+  azy = FIX_MUL(cosb, sinc);
+  azz = FIX_MUL(cosb, cosc);
 
   for (i = 0; i < count; i++) {
     px = points[i].x - center.x;
     py = points[i].y - center.y;
     pz = points[i].z - center.z;
 
-    points[i].x = axx * px + axy * py + axz * pz + center.x;
-    points[i].y = ayx * px + ayy * py + ayz * pz + center.y;
-    points[i].z = azx * px + azy * py + azz * pz + center.z;
+    points[i].x = FIX_MUL(axx, px) + FIX_MUL(axy, py) + FIX_MUL(axz, pz) + center.x;
+    points[i].y = FIX_MUL(ayx, px) + FIX_MUL(ayy, py) + FIX_MUL(ayz, pz) + center.y;
+    points[i].z = FIX_MUL(azx, px) + FIX_MUL(azy, py) + FIX_MUL(azz, pz) + center.z;
   }
 }
 
@@ -203,17 +196,13 @@ void StopApplication() {
 void StartApplication() {
   EventType event;
   UInt32 delay = SysTicksPerSecond() / 30;
-  UInt16 i = 0;
   Figure cube;
   Err error;
   vec3* verts;
   Edge* edges;
 
-  char buf[255];
-  Int16 len;
-
   rot3 angle = {6, 6, 6};
-  vec3 center = {0, 0, 15};
+  vec3 center = make_vec3(0, 0, 15);
 
   // Init math lib
   error = SysLibFind(MathLibName, &MathLibRef);
@@ -254,8 +243,6 @@ void StartApplication() {
   edges[9] = make_edge(1, 5);
   edges[10] = make_edge(2, 6);
   edges[11] = make_edge(3, 7);
-
-  len = StrPrintF(buf, "%d", (int) v2dist(make_vec2(0, 0), make_vec2(3, 4)));
 
   do {
     rotate_3d_fast(cube.verts, cube.verts_count, center, angle);

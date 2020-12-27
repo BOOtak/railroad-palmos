@@ -15,7 +15,7 @@ add_executable(RailRoad
         main.c
         tables.h
         MathLib/Src/MathLib.c
-        )
+        game.c game.h wireframe.c wireframe.h fixed_point.c fixed_point.h)
 
 add_custom_target(RailRoad_prc ALL ${BUILD_PRC} RailRoad.prc "RailRoad" Foss RailRoad)
 

@@ -7,6 +7,8 @@
 
 #include <PalmTypes.h>
 
+#define FPS 30
+
 void InitGame();
 
 Int16 Update(UInt32 delta);

@@ -43,6 +43,8 @@ void StartApplication() {
   UInt32 ts1;
   UInt32 tsN;
   Int16 updateRes = 0;
+  Int32 delay = evtNoWait;
+  UInt16 frameDelay = SysTicksPerSecond() / FPS;
 #ifdef DRAW_FPS
   char fps_buf[255];
   char update_buf[255];
@@ -60,6 +62,10 @@ void StartApplication() {
     if (updateRes == 0) {
       updateRes = Update(ts1 - ts);
       tsN = TimGetTicks();
+      delay = frameDelay - (tsN - ts1);
+      if (delay < 0) {
+        delay = 0;
+      }
     } else {
       StrPrintF(update_buf, "%ld sec", (tsN - ts0) / SysTicksPerSecond());
       WinDrawChars(update_buf, StrLen(update_buf), 50, 0);
@@ -76,7 +82,7 @@ void StartApplication() {
 #endif
     ts = ts1;
 
-    EvtGetEvent(&event, evtNoWait);
+    EvtGetEvent(&event, delay);
     if (!SysHandleEvent(&event)) {
       app_handle_event(&event);
     }

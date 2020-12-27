@@ -13,6 +13,9 @@
 #define SCREEN_W 160
 #define SCREEN_H 160
 
+#define DRAW_FPS 1
+#define FPS 30
+
 // 1 bit - sign; 11 bits - integer part; 4 bits - fraction part
 #define FRAC_BITS 12
 #define SIGN_MASK 0xFFF00000
@@ -60,6 +63,11 @@ typedef struct {
   vec3* verts;
   Edge* edges;
 } Figure;
+
+Figure cube;
+UInt32 frameDelay;
+RectangleType clearRect = {{0, 10}, {160, 150}};
+UInt32 totalRot;
 
 float to_float(Fixed fp) {
   float res;
@@ -184,7 +192,12 @@ void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
 
 void app_handle_event(EventPtr event) {}
 
-void StopApplication() {
+void StopGame() {
+  MemPtrFree(cube.verts);
+  MemPtrFree(cube.edges);
+}
+
+void StopMath() {
   Err error;
   UInt usecount;
 
@@ -193,23 +206,16 @@ void StopApplication() {
   if (usecount == 0) SysLibRemove(MathLibRef);
 }
 
-void StartApplication() {
-  EventType event;
-  UInt32 delay = SysTicksPerSecond() / 30;
-  Figure cube;
-  Err error;
+void StopApplication() {
+  StopGame();
+  StopMath();
+}
+
+void InitGame() {
   vec3* verts;
   Edge* edges;
 
-  rot3 angle = {6, 6, 6};
-  vec3 center = make_vec3(0, 0, 15);
-
-  // Init math lib
-  error = SysLibFind(MathLibName, &MathLibRef);
-  if (error) error = SysLibLoad(LibType, MathLibCreator, &MathLibRef);
-  ErrFatalDisplayIf(error, "Can't find MathLib");  // Just an example; handle it gracefully
-  error = MathLibOpen(MathLibRef, MathLibVersion);
-  ErrFatalDisplayIf(error, "Can't open MathLib");
+  frameDelay = SysTicksPerSecond() / FPS;
 
   verts = (vec3*) MemPtrNew(sizeof(vec3) * 8);
   edges = (Edge*) MemPtrNew(sizeof(Edge) * 12);
@@ -243,20 +249,75 @@ void StartApplication() {
   edges[9] = make_edge(1, 5);
   edges[10] = make_edge(2, 6);
   edges[11] = make_edge(3, 7);
+}
+
+void Update(UInt32 delta) {
+  UInt16 rot_speed = 6;
+  UInt16 rot_angle = delta * rot_speed / frameDelay;
+  rot3 angle = {rot_angle, rot_angle, rot_angle};
+  vec3 center = make_vec3(0, 0, 15);
+  totalRot += rot_angle;
+
+  rotate_3d_fast(cube.verts, cube.verts_count, center, angle);
+  WinEraseRectangle(&clearRect, 0);
+  draw_figure(&cube);
+}
+
+void InitMath() {
+  Err error;
+
+  // InitGame math lib
+  error = SysLibFind(MathLibName, &MathLibRef);
+  if (error) error = SysLibLoad(LibType, MathLibCreator, &MathLibRef);
+  ErrFatalDisplayIf(error, "Can't find MathLib");
+  error = MathLibOpen(MathLibRef, MathLibVersion);
+  ErrFatalDisplayIf(error, "Can't open MathLib");
+}
+
+void StartApplication() {
+  EventType event;
+  UInt32 ts = TimGetTicks();
+  UInt32 ts0 = ts;
+  UInt32 ts1;
+  UInt32 tsN;
+#ifdef DRAW_FPS
+  char fps_buf[255];
+  char update_buf[255];
+  UInt32 tick_counter = 0;
+  UInt16 frame_counter = 0;
+  UInt32 TPS = SysTicksPerSecond();
+  Int16 fpsStrLen;
+#endif
+
+  InitMath();
+  InitGame();
 
   do {
-    rotate_3d_fast(cube.verts, cube.verts_count, center, angle);
-    WinEraseWindow();
-    //    WinDrawChars(buf, len, 0, 0);
-    draw_figure(&cube);
-    EvtGetEvent(&event, delay);
+    ts1 = TimGetTicks();
+    if (totalRot < 3600) {
+      Update(ts1 - ts);
+      tsN = TimGetTicks();
+    } else {
+      StrPrintF(update_buf, "%ld sec", (tsN - ts0) / SysTicksPerSecond());
+      WinDrawChars(update_buf, StrLen(update_buf), 50, 0);
+    }
+#ifdef DRAW_FPS
+    tick_counter += ts1 - ts;
+    frame_counter++;
+    if (tick_counter > TPS) {
+      fpsStrLen = StrPrintF(fps_buf, "%d FPS", frame_counter);
+      tick_counter = 0;
+      frame_counter = 0;
+      WinDrawChars(fps_buf, fpsStrLen, 0, 0);
+    }
+#endif
+    ts = ts1;
+
+    EvtGetEvent(&event, evtNoWait);
     if (!SysHandleEvent(&event)) {
       app_handle_event(&event);
     }
   } while (event.eType != appStopEvent);
-
-  MemPtrFree(verts);
-  MemPtrFree(edges);
 }
 
 UInt32 PilotMain(UInt16 cmd, void* cmdPBP, UInt16 launchFlags) {

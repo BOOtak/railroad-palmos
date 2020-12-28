@@ -68,13 +68,12 @@ void draw_figure(Figure* figure) {
   }
 }
 
-float fsin(Int16 angle) {
-  // TODO: negative angle
+Fixed fsin(Int16 angle) {
   return sin_table[angle % 360];
 }
 
 // cos(x) = sin(90-x)
-float fcos(Int16 angle) {
+Fixed fcos(Int16 angle) {
   int index = (90 - angle) % 360;
   if (index < 0) {
     index = index + 360;
@@ -88,12 +87,12 @@ void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
   Fixed px, py, pz;
   UInt16 i;
 
-  cosa = FLOAT_TO_FIX(fcos(angle.i));
-  sina = FLOAT_TO_FIX(fsin(angle.i));
-  cosb = FLOAT_TO_FIX(fcos(angle.j));
-  sinb = FLOAT_TO_FIX(fsin(angle.j));
-  cosc = FLOAT_TO_FIX(fcos(angle.k));
-  sinc = FLOAT_TO_FIX(fsin(angle.k));
+  cosa = fcos(angle.i);
+  sina = fsin(angle.i);
+  cosb = fcos(angle.j);
+  sinb = fsin(angle.j);
+  cosc = fcos(angle.k);
+  sinc = fsin(angle.k);
 
   axx = FIX_MUL(cosa, cosb);
   axy = FIX_MUL(FIX_MUL(cosa, sinb), sinc) - FIX_MUL(sina, cosc);

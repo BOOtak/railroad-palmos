@@ -61,9 +61,9 @@ void draw_line_3d(vec3 start, vec3 end);
 
 void draw_figure(Figure* figure);
 
-float fsin(Int16 angle);
+Fixed fsin(Int16 angle);
 
-float fcos(Int16 angle);
+Fixed fcos(Int16 angle);
 
 void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle);
 

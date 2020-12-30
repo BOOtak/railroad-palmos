@@ -77,12 +77,16 @@ void draw_figure(Figure* figure) {
 }
 
 Fixed fsin(Int16 angle) {
-  return sin_table[angle % 360];
+  Int16 index = angle % 360;
+  if (index < 0) {
+    index = index + 360;
+  }
+  return sin_table[index];
 }
 
 // cos(x) = sin(90-x)
 Fixed fcos(Int16 angle) {
-  int index = (90 - angle) % 360;
+  Int16 index = (90 - angle) % 360;
   if (index < 0) {
     index = index + 360;
   }

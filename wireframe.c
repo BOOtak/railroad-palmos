@@ -43,7 +43,7 @@ vec2 point_3d(vec3 point) {
 
 void draw_line_3d(vec3 start, vec3 end) {
   vec2 start_2d, end_2d;
-  if (TO_INT(start.z) <= 0 || TO_INT(end.z) <= 0) {
+  if (start.z <= 0 || end.z <= 0) {
     // TODO: draw part of the line in view
     return;
   }
@@ -52,7 +52,7 @@ void draw_line_3d(vec3 start, vec3 end) {
   end_2d = point_3d(end);
   // TODO: check if line fits screen?
 
-  if ((start_2d.x == -1 && start_2d.y == -1) || (end_2d.x == -1 || end_2d.y == -1)) {
+  if (start_2d.x == -1 || start_2d.y == -1 || end_2d.x == -1 || end_2d.y == -1) {
     return;
   }
 
@@ -62,9 +62,17 @@ void draw_line_3d(vec3 start, vec3 end) {
 
 void draw_figure(Figure* figure) {
   UInt16 i;
+  vec2 verts_2d[figure->verts_count];
+  for (i = 0; i < figure->verts_count; ++i) {
+    verts_2d[i] = point_3d(figure->verts[i]);
+  }
+
   for (i = 0; i < figure->edges_count; ++i) {
     Edge edge = figure->edges[i];
-    draw_line_3d(figure->verts[edge.start], figure->verts[edge.end]);
+    if (verts_2d[edge.start].x != -1 && verts_2d[edge.end].x != -1) {
+      WinDrawLine(TO_INT(verts_2d[edge.start].x), TO_INT(verts_2d[edge.start].y), TO_INT(verts_2d[edge.end].x),
+                  TO_INT(verts_2d[edge.end].y));
+    }
   }
 }
 

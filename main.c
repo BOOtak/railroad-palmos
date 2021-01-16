@@ -54,10 +54,26 @@ void StartApplication() {
   Int16 fpsStrLen;
 #endif
 
+  // double buffering
+  UInt16 error;
+  WinHandle originalWindow, offscreenWindow;
+  RectangleType bounds;
+  Coord width, height;
+  WinGetDisplayExtent(&width, &height);
+  offscreenWindow = WinCreateOffscreenWindow(width, height, genericFormat, &error);
+  if (error != 0) {
+    return;
+  }
+
+  originalWindow = WinSetDrawWindow(offscreenWindow);
+  WinGetDrawWindowBounds(&bounds);
+  WinSetDrawWindow(originalWindow);
+
   InitMath();
   InitGame();
 
   do {
+    WinSetDrawWindow(offscreenWindow);
     ts1 = TimGetTicks();
     if (updateRes == 0) {
       updateRes = Update(ts1 - ts);
@@ -81,12 +97,16 @@ void StartApplication() {
     }
 #endif
     ts = ts1;
+    WinCopyRectangle(offscreenWindow, originalWindow, &bounds, 0, 0, winPaint);
+    WinSetDrawWindow(originalWindow);
 
     EvtGetEvent(&event, delay);
     if (!SysHandleEvent(&event)) {
       app_handle_event(&event);
     }
   } while (event.eType != appStopEvent);
+
+  WinDeleteWindow(offscreenWindow, 1);
 }
 
 UInt32 PilotMain(UInt16 cmd, void* cmdPBP, UInt16 launchFlags) {

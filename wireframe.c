@@ -60,18 +60,46 @@ void draw_line_3d(vec3 start, vec3 end) {
               (Coord) TO_INT(end_2d.y));
 }
 
+void setPixel(WinHandle handle, int x, int y) {
+  UInt8* targetByte = (UInt8*) (handle->displayAddrV20 + ((handle->displayWidthV20 >> 3) * y) + (x >> 3));
+  *targetByte = *targetByte | (0x80 >> (x & 7));
+}
+
+void plot_line(WinHandle handle, int x0, int y0, int x1, int y1) {
+  int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+  int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  int err = dx + dy, e2; /* error value e_xy */
+
+  for (;;) { /* loop */
+    setPixel(handle, x0, y0);
+    if (x0 == x1 && y0 == y1) break;
+    e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    } /* e_xy+e_x > 0 */
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    } /* e_xy+e_y < 0 */
+  }
+}
+
 void draw_figure(Figure* figure) {
+  WinHandle handle;
   UInt16 i;
   vec2 verts_2d[figure->verts_count];
   for (i = 0; i < figure->verts_count; ++i) {
     verts_2d[i] = point_3d(figure->verts[i]);
   }
 
+  handle = WinGetDrawWindow();
+
   for (i = 0; i < figure->edges_count; ++i) {
     Edge edge = figure->edges[i];
     if (verts_2d[edge.start].x != -1 && verts_2d[edge.end].x != -1) {
-      WinDrawLine(TO_INT(verts_2d[edge.start].x), TO_INT(verts_2d[edge.start].y), TO_INT(verts_2d[edge.end].x),
-                  TO_INT(verts_2d[edge.end].y));
+      plot_line(handle, TO_INT(verts_2d[edge.start].x), TO_INT(verts_2d[edge.start].y), TO_INT(verts_2d[edge.end].x),
+                TO_INT(verts_2d[edge.end].y));
     }
   }
 }

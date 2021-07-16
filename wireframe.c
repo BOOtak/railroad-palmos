@@ -149,8 +149,9 @@ void rotate_3d_fast(vec3* points, UInt16 count, vec3 center, rot3 angle) {
     py = points[i].y - center.y;
     pz = points[i].z - center.z;
 
-    points[i].x = FIX_MUL(axx, px) + FIX_MUL(axy, py) + FIX_MUL(axz, pz) + center.x;
-    points[i].y = FIX_MUL(ayx, px) + FIX_MUL(ayy, py) + FIX_MUL(ayz, pz) + center.y;
-    points[i].z = FIX_MUL(azx, px) + FIX_MUL(azy, py) + FIX_MUL(azz, pz) + center.z;
+    // fixed-point optimized multiplication
+    points[i].x = ((axx * px + axy * py + axz * pz) >> FRAC_BITS) + center.x;
+    points[i].y = ((ayx * px + ayy * py + ayz * pz) >> FRAC_BITS) + center.y;
+    points[i].z = ((azx * px + azy * py + azz * pz) >> FRAC_BITS) + center.z;
   }
 }

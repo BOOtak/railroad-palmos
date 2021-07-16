@@ -13,7 +13,7 @@
 #define FRAC_MASK 0x00000FFF
 #define MANT_MASK 0xFFFFF000
 
-#define FIX_MUL(X, Y) ((Fixed)(((Int32)((X) * (Y))) >> FRAC_BITS))
+#define FIX_MUL(X, Y) ((Fixed)(((X) * (Y)) >> FRAC_BITS))
 #define FIX_DIV(X, Y) ((Fixed)(((Int32)(X) << FRAC_BITS) / Y))
 #define TO_INT(X) ((X) >> FRAC_BITS)
 #define FLOAT_TO_FIX(X) ((Fixed)((X) * (1 << FRAC_BITS)))

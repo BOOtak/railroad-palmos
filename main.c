@@ -2,38 +2,14 @@
 #include <PalmOS.h>
 #include <StdIOPalm.h>
 
-// MathLib should be included after Palm OS headers
-#include <MathLib.h>
-
 #include "game.h"
 
 #define DRAW_FPS 1
 
 void app_handle_event(EventPtr event) {}
 
-void StopMath() {
-  Err error;
-  UInt usecount;
-
-  error = MathLibClose(MathLibRef, &usecount);
-  ErrFatalDisplayIf(error, "Can't close MathLib");
-  if (usecount == 0) SysLibRemove(MathLibRef);
-}
-
 void StopApplication() {
   StopGame();
-  StopMath();
-}
-
-void InitMath() {
-  Err error;
-
-  // InitGame math lib
-  error = SysLibFind(MathLibName, &MathLibRef);
-  if (error) error = SysLibLoad(LibType, MathLibCreator, &MathLibRef);
-  ErrFatalDisplayIf(error, "Can't find MathLib");
-  error = MathLibOpen(MathLibRef, MathLibVersion);
-  ErrFatalDisplayIf(error, "Can't open MathLib");
 }
 
 void StartApplication() {
@@ -69,7 +45,6 @@ void StartApplication() {
   WinGetDrawWindowBounds(&bounds);
   WinSetDrawWindow(originalWindow);
 
-  InitMath();
   InitGame();
 
   do {

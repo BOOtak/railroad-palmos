@@ -8,6 +8,9 @@
 
 #include "tables.h"
 
+#define BYTES_PER_ROW (160 >> 3)
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+
 vec2 make_vec2(float x, float y) {
   vec2 res = {.x = FLOAT_TO_FIX(x), .y = FLOAT_TO_FIX(y)};
   return res;
@@ -66,21 +69,30 @@ void setPixel(WinHandle handle, int x, int y) {
 }
 
 void plot_line(WinHandle handle, int x0, int y0, int x1, int y1) {
+  // FIXME: handle coordinates out of [0; display width) range
   int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-  int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  int dy = -abs(y1 - y0), sy = y0 < y1 ? BYTES_PER_ROW : -BYTES_PER_ROW;
   int err = dx + dy, e2; /* error value e_xy */
+  int count = MAX(dx,-dy), i = 0;
 
-  for (;;) { /* loop */
-    setPixel(handle, x0, y0);
-    if (x0 == x1 && y0 == y1) break;
+  UInt8* targetByte = (UInt8*) (handle->displayAddrV20 + (BYTES_PER_ROW * y0) + (x0 >> 3));
+  x0 &= 7;
+
+  for (i; i < count; i++) { /* loop */
+    // set pixel
+    *targetByte |= (0x80 >> x0);
     e2 = 2 * err;
     if (e2 >= dy) {
       err += dy;
       x0 += sx;
+      if (x0 & 8) {
+        targetByte += sx;
+        x0 &= 7;
+      }
     } /* e_xy+e_x > 0 */
     if (e2 <= dx) {
       err += dx;
-      y0 += sy;
+      targetByte += sy;
     } /* e_xy+e_y < 0 */
   }
 }
